@@ -17,4 +17,6 @@ public interface Constants {
 
     // not supported present
     String MULTI_PART = "multipart/form-data";
+
+    String FAVICON_ICO = "/favicon.ico";
 }

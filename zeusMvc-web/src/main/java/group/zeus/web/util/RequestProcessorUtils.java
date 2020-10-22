@@ -1,7 +1,6 @@
 package group.zeus.web.util;
 
 import group.zeus.web.exception.RequestException;
-import group.zeus.web.param.Param;
 import group.zeus.web.param.RequestParamInfo;
 import group.zeus.web.param.UrlParam;
 import group.zeus.web.resolver.RequestBodyResolver;
