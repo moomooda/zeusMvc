@@ -30,7 +30,7 @@ import static group.zeus.web.util.RequestProcessorUtils.processUrlParams;
  */
 public class DispatcherServlet {
 
-    private volatile boolean initialized;
+    private volatile boolean initialized = false;
 
     private final Object lock = new Object();
 
@@ -41,14 +41,16 @@ public class DispatcherServlet {
     private HandleMethodAdapter handleMethodAdapter = new HandleMethodAdapter();
 
     public void init (){
-        if (!initialized) {
-            // 保证线程安全
+            // DCL保证线程安全
+            if (isInitialized())
+                return;
             synchronized (this.lock) {
+                if (isInitialized())
+                    return;
                 ApplicationContextUtils.refresh();
                 handleMapping.init();
                 initialized = true;
             }
-        }
     }
 
     /*dispatch request*/
@@ -93,5 +95,14 @@ public class DispatcherServlet {
     private void doGet(String url, ChannelHandlerContext ctx, RequestParamInfo requestParamInfo){
         HandlerMethod  handlerMethod = handleMapping.getHandler(url, RequestMethod.GET);
         handleMethodAdapter.handle(handlerMethod, requestParamInfo, ctx);
+    }
+
+    public static class InstanceHolder{
+        private static final DispatcherServlet INSTANCE = new DispatcherServlet();
+    }
+
+    // singleton
+    public static DispatcherServlet getDispatcherServlet(){
+        return InstanceHolder.INSTANCE;
     }
 }

@@ -2,6 +2,7 @@ package group.zeus.web;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpVersion;
@@ -22,10 +23,10 @@ public class TestDispatcherServlet {
         String uri = "/test/get";
         DefaultFullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_0, HttpMethod.GET, uri);
         dispatcherServlet.init();
-        dispatcherServlet.service(request, null);
+//        dispatcherServlet.service(request, null);
         String uri1 = "/test/get?name=mdz";
         DefaultFullHttpRequest request1 = new DefaultFullHttpRequest(HttpVersion.HTTP_1_0, HttpMethod.GET, uri1);
-        dispatcherServlet.service(request1, null);
+//        dispatcherServlet.service(request1, null);
     }
 
     @Test
@@ -38,7 +39,6 @@ public class TestDispatcherServlet {
         String uri = "/test/post";
         DefaultFullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_0, HttpMethod.POST, uri, content);
         dispatcherServlet.init();
-        dispatcherServlet.service(request, null);
-
+//        dispatcherServlet.service(request, null);
     }
 }

@@ -1,8 +1,6 @@
 package group.zeus.web.resolver;
 
-import com.sun.org.apache.xpath.internal.operations.Bool;
 import group.zeus.web.param.RequestParamInfo;
-import io.netty.handler.codec.http.HttpRequest;
 
 import java.lang.reflect.Parameter;
 
