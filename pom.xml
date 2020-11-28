@@ -11,8 +11,8 @@
     <modules>
         <module>zeusMvc-ioc</module>
         <module>zeusMvc-web</module>
-        <module>zeusMvc-commom</module>
-        <module>zuesMvc-aop</module>
+        <module>zeusMvc-common</module>
+        <module>zeusMvc-aop</module>
         <module>zeusMvc-demo</module>
     </modules>
 
