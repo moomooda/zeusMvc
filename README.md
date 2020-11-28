@@ -6,7 +6,19 @@
 
 
 
-[TOC]
+<!-- TOC -->
+
+- [zeusMvc](#zeusmvc)
+  - [如何使用](#如何使用)
+  - [IOC实现【只支持单例Bean】](#ioc实现只支持单例bean)
+    - [一级缓存](#一级缓存)
+    - [二级缓存](#二级缓存)
+    - [三级缓存](#三级缓存)
+  - [AOP实现](#aop实现)
+  - [Web](#web)
+
+<!-- /TOC -->
+
 
 ## 如何使用
 
@@ -23,21 +35,20 @@
 
 1.  实例化
 
-   ```Java
-   Object bean = createBeanInstance(beanName, beanDefinition);
-   ```
+```Java
+Object bean = createBeanInstance(beanName, beanDefinition);
+```
 
 2. 属性注入
 
-   ```Java
-   populateBean(beanName, beanDefinition, bean);
-   ```
+```Java
+populateBean(beanName, beanDefinition, bean);
+```
+1. 初始化
 
-3. 初始化
-
-   ```Java
-   exposedObject = initializeBean(bean);
-   ```
+```Java
+exposedObject = initializeBean(bean);
+```
 
 以下是IOC+循环引用+AOP联调的单元测试，debug一遍就都清楚了
 
@@ -76,12 +87,12 @@
 ### 三级缓存
 
 ```Java
-    // 一级缓存
-	private static final Map<String, Object> SINGLE_BEANS_CACHE = new ConcurrentHashMap<>(128);
-	// 二级缓存
-    private static final Map<String, Object> EARLY_SIGLE_BANES_CACHE = new HashMap<>(64);
-	// 三级缓存
-    private static final Map<String, ObjectFactory<?>> SINGLE_FACTORIES_CACHE = new HashMap<>(64);
+// 一级缓存
+private static final Map<String, Object> SINGLE_BEANS_CACHE = new ConcurrentHashMap<>(128);
+// 二级缓存
+private static final Map<String, Object> EARLY_SIGLE_BANES_CACHE = new HashMap<>(64);
+// 三级缓存
+private static final Map<String, ObjectFactory<?>> SINGLE_FACTORIES_CACHE = new HashMap<>(64);
 ```
 
 三级缓存主要是为了解决可能有**被AOP增强**的单例Bean**被循环引用**的**一致性**判断。
@@ -140,7 +151,8 @@ synchronized (SINGLE_BEANS_CACHE) {
     // remove成功，发生了循环引用
     EARLY_SIGLE_BANES_CACHE.remove(beanName);
     // remove成功，没有发生循环引用
-    SINGLE_FACTORIES_CACHE.remove(beanName);}
+    SINGLE_FACTORIES_CACHE.remove(beanName);
+}
 ```
 
 到此B初始化完毕，把B放入一级缓存SINGLE_BEANS_CACHE。
@@ -222,6 +234,52 @@ earlySingletonReference是DefaultAdvisorAutoProxyCreator#getEarlyBeanReference�
 这个问题执行上文提到的单元测试就知道啦，最终的exposedObject也持有那些属性！
 
 ## AOP实现
+
+本框架采用CGLIB提供的动态代理实现AOP。
+
+```Java
+protected Object wrapIfNecessary(Object bean){
+    Object proxyBean = new ProxyInstance().getProxy(bean.getClass(), bean);
+    return proxyBean;
+}
+```
+
+wrapIfNecessary方法会根据给定的实例bean，返回继承这个bean的代理对象proxyBean
+
+```Java
+public Object getProxy(Class<?> clazz, Object target) {
+    beanProxy = new DefaultBeanProxy(target);
+    Enhancer en = new Enhancer();
+    en.setSuperclass(clazz);
+    en.setCallbacks(new Callback[]{beanProxy});
+    return en.create();
+}
+```
+
+Enhancer这个对象需要注入目标对象target的运行时类型和Callback数组，最终通过调用create方法生成代理对象。
+
+```Java
+@Override
+public Object intercept(Object object, Method method, Object[] args, MethodProxy methodProxy) throws Throwable {
+    Method beforeMethod = AspectUtils.getBeforeAdvisorMethod(method.getName());
+    if (beforeMethod != null) {
+        beforeMethod.invoke(AspectUtils.getAdvisorInstance(beforeMethod.getDeclaringClass()), args);
+    }
+    // Object result = methodProxy.invokeSuper(object, args);
+    Object result = methodProxy.invoke(getTarget(), args);
+    Method afterMethod = AspectUtils.getAfterAdvisorMethod(method.getName());
+    if (afterMethod != null) {
+        afterMethod.invoke(AspectUtils.getAdvisorInstance(afterMethod.getDeclaringClass()), args);
+    }
+    return result;
+}
+```
+
+而本框架只实现了一种Callback->DefaultBeanProxy，DefaultBeanProxy重写了MethodInterceptor#intercept。
+
+在真正要执行的方法执行之前，用反射调用BeforeMethod，从而织入Before Advice。
+
+在真正要执行的方法执行之后，用反射调用AfterMethod，从而织入Afrter Advice。
 
 ## Web
 
