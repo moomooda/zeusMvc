@@ -98,10 +98,9 @@ public class DefaultBeanFactory implements BeanFactory {
             Object earlySingletonReference = SingleBeanRegistry.getSingleton(beanName, false);
             // 判断为真，则发生了循环引用
             if(earlySingletonReference != null){
-                // 判断为真，则执行initializeBean()，没有发生aop
+                // 判断为真，则执行initializeBean()的时候没有发生aop
                 if(exposedObject == bean){
                     // earlySingletonExposure可能是代理bean
-                    System.out.println(exposedObject);
                     exposedObject = earlySingletonReference;
                 }
                 else
