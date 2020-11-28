@@ -1,4 +1,4 @@
-package group.zeus.web.util;
+package group.zeus.web.resolver;
 
 import group.zeus.web.exception.RequestException;
 

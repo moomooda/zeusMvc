@@ -1,14 +1,13 @@
 package group.zeus.ioc;
 
+import group.zeus.commom.utils.ReflectionUtils;
+import group.zeus.commom.utils.StringUtils;
 import group.zeus.ioc.annotation.Component;
 import group.zeus.ioc.annotation.Controller;
 import group.zeus.ioc.annotation.Lazy;
 import group.zeus.ioc.annotation.Repository;
 import group.zeus.ioc.annotation.Service;
-import group.zeus.ioc.support.BeanFactory;
 import group.zeus.ioc.support.impl.DefaultBeanFactory;
-import group.zeus.ioc.utils.ReflectionUtils;
-import group.zeus.ioc.utils.StringUtils;
 
 import java.util.Set;
 
@@ -17,8 +16,6 @@ import java.util.Set;
  * @Date: 2020/10/14 10:31
  */
 public class AnnotationBeanReader {
-
-    // TODO 这里违反设计模式
     public void readBeanDefinition(DefaultBeanFactory defaultBeanFactory) {
         Set<Class<?>> allClasses = getAllClasses();
         Set<Class<?>> lazyClasses = ReflectionUtils.getTypesAnnotatedWith(Lazy.class);

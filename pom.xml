@@ -11,6 +11,9 @@
     <modules>
         <module>zeusMvc-ioc</module>
         <module>zeusMvc-web</module>
+        <module>zeusMvc-commom</module>
+        <module>zuesMvc-aop</module>
+        <module>zeusMvc-demo</module>
     </modules>
 
     <dependencies>
@@ -29,6 +32,11 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-log4j12</artifactId>
             <version>1.7.7</version>
+        </dependency>
+        <dependency>
+            <groupId>cglib</groupId>
+            <artifactId>cglib</artifactId>
+            <version>2.2</version>
         </dependency>
     </dependencies>
     <build>

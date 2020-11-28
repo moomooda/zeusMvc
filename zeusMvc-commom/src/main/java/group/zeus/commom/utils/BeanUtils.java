@@ -1,13 +1,13 @@
-package group.zeus.ioc.utils;
+package group.zeus.commom.utils;
 
-import group.zeus.ioc.exception.BeanException;
+import group.zeus.commom.exceptions.BeanException;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 
 /**
  * @Author: maodazhan
- * @Date: 2020/10/15 13:18
+ * @Date: 2020/11/24 21:35
  */
 public class BeanUtils {
 

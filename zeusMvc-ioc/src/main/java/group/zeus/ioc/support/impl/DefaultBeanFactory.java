@@ -1,16 +1,20 @@
 package group.zeus.ioc.support.impl;
 
+import group.zeus.aop.processor.BeanPostProcessor;
+import group.zeus.aop.processor.DefaultAdvisorAutoProxyCreator;
+import group.zeus.commom.exceptions.BeanException;
+import group.zeus.commom.utils.BeanUtils;
+import group.zeus.commom.utils.StringUtils;
 import group.zeus.ioc.BeanDefinition;
 import group.zeus.ioc.annotation.Resource;
-import group.zeus.ioc.exception.BeanException;
 import group.zeus.ioc.support.BeanFactory;
 import group.zeus.ioc.support.SingleBeanRegistry;
-import group.zeus.ioc.utils.BeanUtils;
-import group.zeus.ioc.utils.StringUtils;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -20,6 +24,8 @@ import java.util.Map;
 public class DefaultBeanFactory implements BeanFactory {
 
     private final Map<String, BeanDefinition> beanDefinitionMap = new HashMap<>(128);
+
+    private List<BeanPostProcessor> beanPostProcessors = new ArrayList<>();
 
     @Override
     public Object getBean(String name) {
@@ -51,23 +57,58 @@ public class DefaultBeanFactory implements BeanFactory {
 
     private Object doGetBean(String beanName) {
         Object bean;
-        Object sharedInstance = SingleBeanRegistry.getSingleton(beanName);
+        // 允许取半成品的bean，允许循环引用
+        Object sharedInstance = SingleBeanRegistry.getSingleton(beanName, true);
         if (sharedInstance != null)
             bean = sharedInstance;
         else {
             BeanDefinition beanDefinition = this.beanDefinitionMap.get(beanName);
             if (beanDefinition == null)
                 throw new BeanException("Cannot find the definition of  bean (" + beanName + ")");
-            bean = doCreateBean(beanName, beanDefinition);
-            SingleBeanRegistry.addSingleBean(beanName, bean);
+//            bean = doCreateBean(beanName, beanDefinition);
+//            SingleBeanRegistry.addSingleBean(beanName, bean);
+            bean = SingleBeanRegistry.getSingleton(beanName, () -> {
+                try {
+                    return doCreateBean(beanName, beanDefinition);
+                } catch (Exception ex) {
+                    // 删除全部缓存
+                    SingleBeanRegistry.removeSingleton(beanName);
+                    throw ex;
+                }
+            });
         }
         return bean;
     }
 
     private Object doCreateBean(String beanName, BeanDefinition beanDefinition) {
+        // 此时仅仅实例化，还没初始化
         Object bean = createBeanInstance(beanName, beanDefinition);
+        boolean earlySingletonExposure = SingleBeanRegistry.isSingletonCurrentlyInCreation(beanName);
+        if (earlySingletonExposure) {
+            // 只有真的发生了循环引用，才会执行getEarlyBeanReference()
+            SingleBeanRegistry.addSingletonFactory(beanName, () -> getEarlyReference(bean)
+            );
+        }
+        // 最终返回的bean引用
+        Object exposedObject = bean;
         populateBean(beanName, beanDefinition, bean);
-        return bean;
+        exposedObject = initializeBean(bean);
+        // 有可能发生循环引用，所以需要判断
+        if (earlySingletonExposure){
+            Object earlySingletonReference = SingleBeanRegistry.getSingleton(beanName, false);
+            // 判断为真，则发生了循环引用
+            if(earlySingletonReference != null){
+                // 判断为真，则执行initializeBean()，没有发生aop
+                if(exposedObject == bean){
+                    // earlySingletonExposure可能是代理bean
+                    System.out.println(exposedObject);
+                    exposedObject = earlySingletonReference;
+                }
+                else
+                    throw new BeanException("Error, Other beans Might depend wrong bean reference");
+            }
+        }
+        return exposedObject;
     }
 
     private Object createBeanInstance(String beanName, BeanDefinition beanDefinition) {
@@ -76,7 +117,7 @@ public class DefaultBeanFactory implements BeanFactory {
             throw new BeanException("Specified class (" + beanName + ") is a interface");
         Constructor<?> constructorToUse;
         try {
-            constructorToUse = beanClazz.getDeclaredConstructor((Class<?>[] ) null);
+            constructorToUse = beanClazz.getDeclaredConstructor((Class<?>[]) null);
             return BeanUtils.instantiateClass(constructorToUse);
         } catch (Exception e) {
             throw new BeanException("(" + beanName + "), no default constructor found", e);
@@ -96,9 +137,41 @@ public class DefaultBeanFactory implements BeanFactory {
                 field.set(beanInstance, getBean(field.getName()));
             }
         } catch (Exception e) {
-            throw new BeanException("Populate bean: " + beanName + "failed");
+            throw new BeanException("Populate bean: " + beanName + " failed");
         }
     }
 
+    private Object initializeBean(final Object bean) {
+        return applyBeanPostProcessorsAfterInitialization(bean);
+    }
+
+    public Object applyBeanPostProcessorsAfterInitialization(Object existingBean){
+        Object result = existingBean;
+        for(BeanPostProcessor processor : getBeanPostProcessors()){
+            Object current = processor.postProcessAfterInitialization(result);
+            if (current == null){
+                return result;
+            }
+            result = current;
+        }
+        return result;
+    }
+
+    public List<BeanPostProcessor> getBeanPostProcessors(){
+        return this.beanPostProcessors;
+    }
+
+    public void addBeanPostProcessor(BeanPostProcessor beanPostProcessor){
+        this.beanPostProcessors.add(beanPostProcessor);
+    }
+
+    protected Object getEarlyReference(Object bean){
+        for (BeanPostProcessor bp: this.beanPostProcessors){
+            if (bp instanceof DefaultAdvisorAutoProxyCreator){
+                return ((DefaultAdvisorAutoProxyCreator) bp).getEarlyBeanReference(bean);
+            }
+        }
+        return bean;
+    }
 
 }

@@ -2,7 +2,6 @@ package group.zeus.web;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpVersion;
@@ -18,7 +17,7 @@ public class TestDispatcherServlet {
 
     DispatcherServlet dispatcherServlet = new DispatcherServlet();
 
-    @Test
+//    @Test
     public void testService0(){
         String uri = "/test/get";
         DefaultFullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_0, HttpMethod.GET, uri);
@@ -29,7 +28,7 @@ public class TestDispatcherServlet {
 //        dispatcherServlet.service(request1, null);
     }
 
-    @Test
+//    @Test
     public void testService1(){
         Charset charset = Charset.forName("UTF-8");
         ByteBuf content = Unpooled.copiedBuffer("{\n" +

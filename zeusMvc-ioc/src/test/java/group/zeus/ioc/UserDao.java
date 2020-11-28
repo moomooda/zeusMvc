@@ -6,7 +6,7 @@ import group.zeus.ioc.annotation.Repository;
  * @Author: maodazhan
  * @Date: 2020/10/15 13:53
  */
-@Repository
+//@Repository
 public class UserDao {
 
     public void sayHello(){
