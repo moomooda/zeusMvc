@@ -1,5 +1,6 @@
 package group.zeus.ioc;
 
+import group.zeus.aop.processor.DefaultAdvisorAutoProxyCreator;
 import group.zeus.ioc.support.BeanFactory;
 import group.zeus.ioc.support.impl.DefaultBeanFactory;
 
@@ -16,6 +17,8 @@ public class ApplicationContext implements BeanFactory {
 
     public ApplicationContext() {
         loadBeanDefinitions();
+        // 加载后置处理器
+        postProcessBeanFactory();
         finishBeanInitialization();
     }
 
@@ -42,5 +45,10 @@ public class ApplicationContext implements BeanFactory {
     private void finishBeanInitialization() {
         defaultBeanFactory.instantiateSingletons();
         // TODO 目前只初始化singleTon
+    }
+
+    private void postProcessBeanFactory(){
+        // 创建代理对象的beanPostProcessor
+        defaultBeanFactory.addBeanPostProcessor(new DefaultAdvisorAutoProxyCreator());
     }
 }

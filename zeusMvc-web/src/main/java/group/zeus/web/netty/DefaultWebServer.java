@@ -1,7 +1,7 @@
 package group.zeus.web.netty;
 
+import group.zeus.commom.utils.ThreadPoolUtils;
 import group.zeus.web.netty.handler.DefaultChannelInitializer;
-import group.zeus.web.util.ThreadPoolUtils;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelOption;

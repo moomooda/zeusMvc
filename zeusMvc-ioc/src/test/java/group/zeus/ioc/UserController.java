@@ -7,7 +7,7 @@ import group.zeus.ioc.annotation.Resource;
  * @Author: maodazhan
  * @Date: 2020/10/15 13:53
  */
-@Controller
+//@Controller
 public class UserController {
 
     @Resource

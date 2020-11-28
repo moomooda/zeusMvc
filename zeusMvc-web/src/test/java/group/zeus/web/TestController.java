@@ -12,7 +12,7 @@ import group.zeus.web.response.Response;
  * @Author: maodazhan
  * @Date: 2020/10/21 20:25
  */
-@Controller
+//@Controller
 @RequestMapping("/test")
 public class TestController {
 

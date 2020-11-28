@@ -6,7 +6,7 @@ import group.zeus.ioc.annotation.Service;
  * @Author: maodazhan
  * @Date: 2020/10/15 13:53
  */
-@Service
+//@Service
 public class UserService {
 
     public void sayHello(){

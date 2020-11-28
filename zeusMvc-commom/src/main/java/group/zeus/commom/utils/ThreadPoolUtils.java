@@ -1,6 +1,5 @@
-package group.zeus.web.util;
+package group.zeus.commom.utils;
 
-import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -8,7 +7,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * @Author: maodazhan
- * @Date: 2020/10/17 14:45
+ * @Date: 2020/11/25 12:34
  */
 public class ThreadPoolUtils {
 
@@ -27,6 +26,6 @@ public class ThreadPoolUtils {
                 },
                 new ThreadPoolExecutor.AbortPolicy()
         );
-                return serverHandlerPool;
+        return serverHandlerPool;
     }
 }

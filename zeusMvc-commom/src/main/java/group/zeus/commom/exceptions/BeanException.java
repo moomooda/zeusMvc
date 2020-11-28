@@ -1,10 +1,10 @@
-package group.zeus.ioc.exception;
+package group.zeus.commom.exceptions;
 
 /**
  * @Author: maodazhan
- * @Date: 2020/10/15 13:00
+ * @Date: 2020/11/24 21:36
  */
-public class BeanException extends RuntimeException {
+public class BeanException extends RuntimeException{
 
     public BeanException(String msg) {
         super(msg);
