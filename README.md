@@ -24,6 +24,8 @@
     - [方法参数解析和数据绑定](#方法参数解析和数据绑定)
       - [GET](#get)
       - [POST](#post)
+      - [@RequestBody](#requestbody)
+      - [@RequestParam](#requestparam)
     - [返回值解析和数据绑定](#返回值解析和数据绑定)
   - [功能扩展](#功能扩展)
 
@@ -75,20 +77,20 @@
       ```
 
    3.  http请求示例
-      **Request**  方式:post  地址:localhost:8800/test/login Content-Type:application/json
-      ```Json
-      {
-          "name": "lkqqqqq",
-          "password": "xxxxxxxxxxx",
-          "mobilePhone":13356789872
-      }
-      ```
-      **Reponse**  Conent-Type:application/json
-      ```Json
-      {
-          "data": "用户: lkqqqqq 登录成功"
-      }
-      ```
+      
+        ```Json
+        // Request  方式:post  地址:localhost:8800/test/login Content-Type:application/json
+        {
+            "name": "lkqqqqq",
+            "password": "xxxxxxxxxxx",
+            "mobilePhone":13356789872
+        }
+        // Reponse  Conent-Type:application/json
+        {
+            "data": "用户: lkqqqqq 登录成功"
+        }
+        ```
+      
 
 3. IOC和AOP说明
 
