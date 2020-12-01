@@ -2,7 +2,7 @@
 
 # zeusMvc
 
-本项目是学习Spring、SpringMVC、Netty框架之后，造的一个小轮子。它是一个轻量级的Web框架，基于Netty提供通信服务，支持Http、Https的RESTful Web服务，同时引入了IOC和AOP敏捷开发。
+本项目是学习Spring、SpringMVC、Netty框架之后，造的一个小轮子。它是一个轻量级的Web框架，基于Netty提供通信服务，支持RESTful Web服务，同时引入了IOC和AOP敏捷开发。
 
 
 
@@ -16,19 +16,90 @@
     - [三级缓存](#三级缓存)
   - [AOP实现](#aop实现)
   - [Web](#web)
+    - [Netty服务启动](#netty服务启动)
+      - [编解码器](#编解码器)
+      - [业务线程池](#业务线程池)
+      - [初始化容器](#初始化容器)
+    - [请求路由](#请求路由)
+    - [方法参数解析和数据绑定](#方法参数解析和数据绑定)
+      - [GET](#get)
+      - [POST](#post)
+    - [返回值解析和数据绑定](#返回值解析和数据绑定)
+  - [功能扩展](#功能扩展)
 
 <!-- /TOC -->
 
 
 ## 如何使用
 
-可以参考zeusMvc-demo的样例。
+1. 拷贝项目到本地后，maven编译
 
-1. xx
-2. xx
-3. xx
-4. xx
-5. xx
+   ```shell
+   mvn -U idea:idea -DskipTests
+   ```
+
+2. 参考module zeusMvc-demo进行使用
+
+   1. 一个Controller类的示例
+
+      ```Java
+      @Controller
+      @RequestMapping("/test")
+      public class LoginController {
+          @Resource
+          private LoginService loginService;
+          @RequestMapping(value = "/login", method = RequestMethod.POST)
+          public Response login(@RequestBody User user){
+              String data = null;
+              if (loginService.login(user))
+                  data = String.format("用户: %s 登录成功", user.getName());
+              else
+                  data = String.format("用户: %s 登录失败", user.getName());
+              Response response = new JsonResponse();
+              response.put("data",data);
+              return response;
+          }
+      }
+      ```
+
+   2. Web服务启动的示例
+
+      ```Java
+      public class Application {
+          public static void main(String[] args) {
+              String address = "127.0.0.1:8800";
+              DefaultWebServer server = new DefaultWebServer(address);
+              server.start();
+          }
+      }
+      ```
+
+   3.  http请求示例
+      **Request**  方式:post  地址:localhost:8800/test/login Content-Type:application/json
+      ```Json
+      {
+          "name": "lkqqqqq",
+          "password": "xxxxxxxxxxx",
+          "mobilePhone":13356789872
+      }
+      ```
+      **Reponse**  Conent-Type:application/json
+      ```Json
+      {
+          "data": "用户: lkqqqqq 登录成功"
+      }
+      ```
+
+3. IOC和AOP说明
+
+   IOC：本框架手动实现的IOC用于管理@Service、@Component、@Repository、@Controller等注解修饰的类的创建和依赖注入，
+
+   而依赖注入在业务逻辑非常复杂的情况会产生循环引用问题，虽然大部分情况下我们极力避免这种情况的发生。本框架原来使用二级缓存解决了循环引用的问题，**但考虑循环引用的Java Bean极端情况下可能还是个Aop的Java Bean，于是继续扩展成和Spring一样的三级缓存**。
+
+   Aop：本项目相比Spring只实现了CGLIB的动态代理，具体使用样例参考zeusMvc-ioc的单元测试
+   
+   
+
 ## IOC实现【只支持单例Bean】
 
 一个单例Bean的创建过程是如下3步：
@@ -231,7 +302,7 @@ earlySingletonReference是DefaultAdvisorAutoProxyCreator#getEarlyBeanReference�
 
 **代理对象被注入到B之后，并没有参与后续的populateBean，而是原始的A参与了后续的populateBean，那么最终放到容器的exposedObject是否持有那些原始的A注入的属性呢。**
 
-这个问题执行上文提到的单元测试就知道啦，最终的exposedObject也持有那些属性！
+这个问题执行上文提到的单元测试就知道啦，最终的exposedObject也持有那些属性，**还得说明下的是这里说的持有属性是通过getter方法持有，Field实际上是null的**！
 
 ## AOP实现
 
@@ -283,5 +354,189 @@ public Object intercept(Object object, Method method, Object[] args, MethodProxy
 
 ## Web
 
-- Http
-- Https
+### Netty服务启动
+
+#### 编解码器
+
+Netty给Http提供了现成的编解码器，其中HttpResponseEncoder是出站handler，用于向客户端发送响应；HttpRequestDecoder是入站handler，用于接收来自客户端的响应。
+
+另外，有必要增加一个HttpObjectAggregator用于聚合Http消息。在HttpResponseEncoder和HttpRequestDecoder的父类HttpObjectDecoder 源码注释中提到
+
+```css
+ * If the content of an HTTP message is greater than {@code maxChunkSize} or
+ * the transfer encoding of the HTTP message is 'chunked', this decoder
+ * generates one {@link HttpMessage} instance and its following
+ * {@link HttpContent}s per single HTTP message to avoid excessive memory
+ * consumption. 
+```
+
+在消息体较大的情况下，HttpResponseEncoder和HttpRequestDecoder可能会生成多个消息对象,**尤其是请求方式是Post的时候**。而**HttpObjectAggregator**可以缓冲消息分段，直到聚合成一个完整的消息。
+
+Netty的ChannelHandler配置如下：
+
+```Java
+ChannelPipeline cp = ch.pipeline();
+cp.addLast("request_decoder", new HttpRequestDecoder());
+cp.addLast("response_encoder", new HttpResponseEncoder());
+// support body request 最大512KB
+cp.addLast("post", new HttpObjectAggregator(512 * 1024));
+cp.addLast("dispatcher_handler", new NettyRequestDispatcher(threadPoolExecutor));
+```
+
+#### 业务线程池
+
+其中**NettyRequestDispatcher**是一个自定义的ChannelInbound-Handler，也是最核心的ChannelHandler，用于实际处理Http请求和返回Http响应，这块是非IO操作，涉及的处理相对比较耗时，怕**阻塞Eventloop**，于是配置了一个普通的JDK 线程池**（coresize:16,maxsize:32）**
+
+```Java
+// 线程池配置
+ThreadPoolExecutor threadPoolExecutor = ThreadPoolUtils.makeServerThreadPool(DefaultWebServer.class.getSimpleName(),16,32);
+...
+// 服务端委托线程池处理客户端的Http请求
+serverHandlerPool.execute(new Runnable() {
+    @Override
+    public void run() {
+        try {
+            dispatcherServlet.service((HttpRequest) msg, ctx);
+        } catch (Exception ex){
+            Logger.info(ex.getMessage(), ex);
+        }
+        finally {
+            // avoid OOM
+            ReferenceCountUtil.release(msg);
+        }
+    }
+});
+```
+
+某博客分析过，如果客户端的连接数不超过32，安排一个普通的JDK线程池足以；如果客户端连接数非常大，可以考虑给每一个Channel绑定一个**EventExecutorGroup**处理业务逻辑，避免多个Channel共享一个JDK线程池而发生死锁、阻塞等问题。
+
+#### 初始化容器
+
+前面提到过，本框架支持IOC，IOC在Web服务启动阶段具体是通过初始化一个**ApplicationContext**容器来管理所有和Web相关的Java Bean，方便后续管理方法路由信息的HandlerMapping从容器中获取Java Bean
+
+```Java
+private volatile boolean initialized = false;
+...
+public void init (){
+    // DCL保证线程安全
+    if (isInitialized())
+        return;
+    synchronized (this.lock) {
+        if (isInitialized())
+            return;
+        ApplicationContextUtils.refresh();
+        // 初始化方法路由映射
+        handleMapping.init();
+        initialized = true;
+    }
+}
+```
+
+通过**DCL 单例模式**，确保ApplicationContextUtils.refresh()**只执行一次**，init方法由**NettyRequestDispatcher#channelRead**进行调用，所以Web服务第一次处理Http请求的时候，由于要完成初始化工作，相对较慢。
+
+### 请求路由
+
+一个Http请求最终要落到一个Java Bean的Method上进行处理，本框架用HttpMethod封装JavaBean和Method。
+
+Http请求通过匹配两个条件找到合适的HttpMethod，分别是URL PATH，请求行 Method（GET、POST等）。
+
+RoutingRequest用于封装两个条件（URL PATH，请求行Method）
+
+所以请求的路由就是去HandlerMapping匹配**RoutingRequest**，获取**HandlerMethod**
+
+```Java
+/* Request (url, type) 路由Controller的Method*/
+public HandlerMethod getHandler(String url, RequestMethod requestMethod){
+    for(Map.Entry<RoutingRequest, HandlerMethod>  entry: mappings.entrySet()){
+        RequestMethod[] allowedRequests = entry.getKey().getRequestMethods();
+        if (entry.getKey().getPath().equals(url)){
+            if (Arrays.asList(allowedRequests).contains(requestMethod))
+                return entry.getValue();
+        }
+    }
+    return null;
+}
+```
+
+### 方法参数解析和数据绑定
+
+**RequestParamInfo**封装了一个Http请求的Body参数和Url参数。
+
+#### GET 
+
+GET请求的请求头没有Content-Type字段，只需要对URL上的参数进行处理即可。
+
+Netty提供了**QueryStringDecoder**对URL进行处理，拆分成一个PATH 字符串和参数键值对
+
+所以GET请求的RequestParamInfo的参数信息到此就整合完毕了
+
+#### POST
+
+除了POST，HTTP1.1新增的几个语义PUT、DELETE等都是HTTP请求头都是可以带Content-Type字段的，除了需要对URL上的参数进行处理外，还需要对Body的参数进行处理。
+
+以Content-Type为application/json为例
+
+```Java
+// process different content type of params
+case Constants.JSON:
+    String content = ((FullHttpRequest) request).content().toString(CharsetUtil.UTF_8);
+    JSONObject object = JSON.parseObject(content);
+    if (object != null){
+        for(Map.Entry<String, Object> entry: object.entrySet())
+            requestParamInfo.addBodyParams(new BodyParam(entry.getKey(), entry.getValue()));
+    }
+    break;
+```
+
+通过强制转型HttpRequest为FullHttpRequest获取到content内容，对RequestParamInfo进行进一步填充。
+
+到此无论是GET还是POST的请求，参数信息都整合完毕，后续就是把**Http请求的参数绑定到方法的入参**上
+
+```Java
+/*参数解析*/
+Object[] args = RequestProcessorUtils.getResolvedArguments(method, requestParamInfo);
+...
+/*反射调用方法*/
+response = (Response) method.invoke(handlerMethod.getBean(), args);
+
+// TODO 返回值解析
+```
+
+到此一个请求就处理完啦，而具体如何进行数据绑定根据参数注解分为两种情况
+
+通过反射拿到Method的所有Parameter，遍历一遍，**RequestBodyResolver**是否support该Parameter，**RequestParamResolver**是否support该Parameter，来确定选择哪个Resolver进行数据绑定
+
+#### @RequestBody 
+
+一个方法签名只允许一个@RequestBody注解修饰参数
+
+对应的**RequestBodyResolver**通过反射拿到所有Field，对请求参数进行**类型转换**，绑定到对应的Field上，最终一个Java Bean就完成数据绑定啦
+
+```Java
+for (Field field: fields){
+    field.setAccessible(true);
+    Object value = requestParamInfo.getBodyParams().get(field.getName());
+    if (value == null){
+        field.set(obj, null);
+        continue;
+    }
+    value = ParameterConveter.convert(field.getType(), value);
+    field.set(obj, value);
+}
+```
+
+#### @RequestParam
+
+这个比起@RequestBody类型的参数数据绑定简单很多，不需要用到反射。
+
+### 返回值解析和数据绑定
+
+这块目前没做，只支持返回Json串
+
+## 功能扩展
+
+- [ ] 支持更多的Content-Type，比如表单application/x-www-form-urlencoded，multipart/form-data等
+- [ ] 支持ORM
+- [ ] 支持返回值解析，比如@ResponseBody对应的返回值解析，返回给前端
+- [ ] 性能测试
+
